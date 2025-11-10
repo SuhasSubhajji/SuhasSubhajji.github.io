@@ -2,54 +2,44 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Myth Holidays - Travel India</title>
+<title>Myth Holidays - Travel Karnataka & Kerala</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body {
-  margin:0;
-  font-family: Arial, sans-serif;
-  background:#f3f5f9;
-  color:#222;
-}
+body { margin:0; font-family: Arial, sans-serif; background:#f3f5f9; color:#222; }
 
-/* BANNER */
+/* Banner */
 header {
-  padding: 60px 20px;
+  background: linear-gradient(135deg, #0077ff, #00bfa6);
+  padding: 50px 20px;
   text-align: center;
   color: white;
-  background: linear-gradient(135deg, #0077ff, #00c6b8);
-  position: relative;
-  overflow: hidden;
+  animation: glow 4s infinite alternate;
+}
+@keyframes glow {
+  0% { box-shadow: 0 0 20px #00eaff; }
+  100% { box-shadow: 0 0 60px #00ffc8; }
 }
 header h1 {
   margin: 0;
-  font-size: 3.4rem;
-  font-weight: 900;
+  font-size: 3rem;
   text-transform: uppercase;
-  letter-spacing: 3px;
-  animation: glow 2.6s infinite alternate ease-in-out;
+  font-weight: 800;
+  background: linear-gradient(90deg, #fff, #d2fff4);
+  -webkit-background-clip: text;
+  color: transparent;
 }
-@keyframes glow {
-  from { text-shadow:0 0 10px #fff,0 0 25px #33d4ff; }
-  to   { text-shadow:0 0 20px #fff,0 0 45px #00ffdd; }
-}
-header p {
-  margin-top: 12px;
-  font-size: 1.2rem;
-  opacity: 0.9;
-}
+header p { margin-top: 12px; font-size: 1.2rem; }
 
-/* TITLES */
+/* Titles */
 .section-title {
   text-align: center;
   margin: 50px 0 20px;
   font-size: 2rem;
-  color: #222;
   font-weight: 600;
   text-transform: uppercase;
 }
 
-/* GRID */
+/* Grid */
 .grid {
   display: grid;
   gap: 18px;
@@ -57,87 +47,44 @@ header p {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
-/* CARD */
 .card {
   background:#fff;
   border-radius:12px;
   overflow:hidden;
   box-shadow:0 4px 16px rgba(0,0,0,0.12);
-  transition: transform .3s;
+  transition:.3s;
 }
 .card:hover { transform: scale(1.03); }
 .card img {
-  width:100%;
-  height:170px;
-  object-fit:cover;
+  width:100%; height:170px; object-fit:cover;
 }
-.card h3 {
-  margin: 15px;
-  font-size: 1.1rem;
-}
+.card h3 { margin: 15px; font-size: 1.1rem; }
 
-/* BOOKING FORM */
-.booking-wrapper {
+/* Form */
+form {
+  max-width: 420px;
   background:#fff;
-  padding:40px 20px;
-  margin:40px 20px;
-  border-radius:14px;
-  box-shadow:0 4px 16px rgba(0,0,0,0.12);
-  max-width:700px;
-  margin-left:auto;
-  margin-right:auto;
+  padding: 30px;
+  margin: 40px auto;
+  border-radius: 12px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.15);
 }
-.booking-wrapper h2 {
-  text-align:center;
-  margin-bottom:20px;
-  font-size:1.7rem;
+input, textarea {
+  width:100%; padding:12px; margin:10px 0;
+  border-radius:8px; border:1px solid #ccc; font-size:1rem;
 }
-form input, form textarea {
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  border-radius:10px;
-  border:1px solid #ccc;
-  font-size:1rem;
+button {
+  width:100%; padding:12px; border:none; border-radius:8px;
+  background:#0077ff; color:#fff; font-size:1.1rem; cursor:pointer;
 }
-form button {
-  margin-top:18px;
-  width:100%;
-  padding:14px;
-  background:#0077ff;
-  border:0;
-  color:white;
-  border-radius:10px;
-  font-size:1rem;
-  cursor:pointer;
-  font-weight:600;
-  transition:0.3s;
-}
-form button:hover { background:#005ad7; }
+button:hover { background:#0059cf; }
 
-/* FOOTER */
+/* Footer */
 footer {
-  background:#111;
-  color:#ccc;
-  text-align:center;
-  padding:30px 20px;
-  margin-top:50px;
+  background:#111; color:#ccc; text-align:center;
+  padding:25px 15px; margin-top:50px;
 }
-.social-icons {
-  margin-top:15px;
-  display:flex;
-  justify-content:center;
-  gap:22px;
-}
-.social-icons svg {
-  width:28px;
-  height:28px;
-  fill:#ffffff;
-  opacity:0.85;
-  transition:0.3s;
-  cursor:pointer;
-}
-.social-icons svg:hover { opacity:1; transform: scale(1.1); }
+footer a { color:#00ffc8; text-decoration:none; font-weight:600; }
 </style>
 </head>
 <body>
@@ -147,64 +94,57 @@ footer {
   <p>Discover Karnataka & Kerala Like Never Before</p>
 </header>
 
-<!-- Karnataka Section -->
 <div class="section-title">Top Places in Karnataka</div>
 <div class="grid">
-
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/7/75/Coorg_Scenery.jpg"><h3>Coorg</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/f/f9/Hampi_virupaksha_temple.jpg"><h3>Hampi</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/6/6f/Om_Beach_Gokarna.JPG"><h3>Gokarna</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/d/d9/Mysore_Palace_Front_View.jpg"><h3>Mysore Palace</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/2/23/Jog_Falls_05092016.jpg"><h3>Jog Falls</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Mullayanagiri_peak.jpg"><h3>Chikmagalur</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/1/14/Badami_Cave_1.jpg"><h3>Badami Caves</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/7/70/Bandipur_Forest.jpg"><h3>Bandipur</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/1/1d/Nandi_Hills_Sunrise.jpg"><h3>Nandi Hills</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Murudeshwar_Beach.jpg"><h3>Murudeshwar</h3></div>
-
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/7/75/Coorg_Scenery.jpg"><h3>Coorg</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/f/f9/Hampi_virupaksha_temple.jpg"><h3>Hampi</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/6/6f/Om_Beach_Gokarna.JPG"><h3>Gokarna</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/d/d9/Mysore_Palace_Front_View.jpg"><h3>Mysore Palace</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/2/23/Jog_Falls_05092016.jpg"><h3>Jog Falls</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/5/55/Mullayanagiri_peak.jpg"><h3>Chikmagalur</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/1/14/Badami_Cave_1.jpg"><h3>Badami Caves</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/7/70/Bandipur_Forest.jpg"><h3>Bandipur</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/1/1d/Nandi_Hills_Sunrise.jpg"><h3>Nandi Hills</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Murudeshwar_Beach.jpg"><h3>Murudeshwar</h3></div>
 </div>
 
-<!-- Kerala Section -->
 <div class="section-title">Top Places in Kerala</div>
 <div class="grid">
-
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Munnar_hillstation_kerala.jpg"><h3>Munnar</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/6/64/Houseboat_in_Alleppey.jpg"><h3>Alleppey Backwaters</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/1/18/Thamarassery_Churam_Wayanad.jpg"><h3>Wayanad</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Fort_Kochi.JPG"><h3>Kochi</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Varkala_beach.jpg"><h3>Varkala</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/7/7a/Thekkady_Lake.JPG"><h3>Thekkady</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/Kovalam_Beach%2C_Kerala.jpg"><h3>Kovalam</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/4/48/Athirapally_Waterfalls_2.jpg"><h3>Athirappilly Falls</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/5/56/Kumarakom_Boat.jpg"><h3>Kumarakom</h3></div>
-<div class="card"><img src="https://upload.wikimedia.org/wikipedia/commons/1/17/Sree_Padmanabhaswamy_Temple.jpg"><h3>Padmanabhaswamy Temple</h3></div>
-
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/4/44/Munnar_hillstation_kerala.jpg"><h3>Munnar</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/6/64/Houseboat_in_Alleppey.jpg"><h3>Alleppey Backwaters</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/1/18/Thamarassery_Churam_Wayanad.jpg"><h3>Wayanad</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/9/93/Fort_Kochi.JPG"><h3>Kochi</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Varkala_beach.jpg"><h3>Varkala</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/7/7a/Thekkady_Lake.JPG"><h3>Thekkady</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/b/b8/Kovalam_Beach%2C_Kerala.jpg"><h3>Kovalam</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/4/48/Athirapally_Waterfalls_2.jpg"><h3>Athirappilly Falls</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/5/56/Kumarakom_Boat.jpg"><h3>Kumarakom</h3></div>
+<div class="card"><img referrerpolicy="no-referrer" src="https://upload.wikimedia.org/wikipedia/commons/1/17/Sree_Padmanabhaswamy_Temple.jpg"><h3>Padmanabhaswamy Temple</h3></div>
 </div>
 
-<!-- Booking Form -->
-<div class="booking-wrapper">
-  <h2>Plan Your Trip</h2>
-  <form>
-    <input type="text" placeholder="Your Name" required>
-    <input type="text" placeholder="WhatsApp Number" required>
-    <input type="text" placeholder="Destination (Example: Coorg)" required>
-    <textarea placeholder="Message / Travel Dates" rows="4"></textarea>
-    <button>Submit Inquiry</button>
-  </form>
-</div>
+<div class="section-title">Book Your Trip</div>
+<form onsubmit="sendWhatsApp(event)">
+  <input id="name" type="text" placeholder="Your Name" required>
+  <input id="destination" type="text" placeholder="Destination" required>
+  <textarea id="message" rows="4" placeholder="Your Travel Plan" required></textarea>
+  <button type="submit">Send Inquiry on WhatsApp</button>
+</form>
 
-<!-- Footer -->
 <footer>
-  <div>© 2025 Myth Holidays — Explore. Experience. Enjoy.</div>
-
-  <div class="social-icons">
-    <!-- WhatsApp -->
-    <svg><path d="M12 0a12 12 0 0 0-10.2 18.6L0 24l5.7-1.9A12 12 0 1 0 12 0zm5.9 16.9c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.6-.1-.4-.2-.9-.3-1.8-.7-3.2-1.4-5.3-4.8-5.5-5-.2-.3-1.3-1.7-1.3-3.2 0-1.6.8-2.4 1.1-2.7.3-.3.7-.4 1-.4h.7c.2 0 .5 0 .8.6.3.7 1 2.3 1.1 2.4.1.1.1.2 0 .4-.1.2-.2.3-.4.5-.2.2-.4.4-.6.6-.2.2-.4.4-.2.8.2.4 1 1.6 2.3 2.6 1.6 1.2 2.3 1.3 2.7 1.1.4-.2 1.2-.8 1.5-1.3.4-.4.7-.3 1 .2.3.5 1.3 2 1.3 2.1 0 .1.1.5-.1 1.1z"/></svg>
-
-    <!-- Instagram -->
-    <svg><path d="M7 2C4.2 2 2 4.2 2 7v10c0 2.8 2.2 5 5 5h10c2.8 0 5-2.2 5-5V7c0-2.8-2.2-5-5-5H7zm8 3a1 1 0 110 2 1 1 0 010-2zm-5 2a5 5 0 100 10 5 5 0 000-10z"/></svg>
-  </div>
+  <p>Contact us on WhatsApp: <a href="https://wa.me/919959955405">9959955405</a></p>
+  <p>© 2025 Myth Holidays</p>
 </footer>
+
+<script>
+function sendWhatsApp(e) {
+  e.preventDefault();
+  const n=document.getElementById("name").value;
+  const d=document.getElementById("destination").value;
+  const m=document.getElementById("message").value;
+  const text = `Hello, I am ${n}. I want to visit ${d}. ${m}`;
+  window.open(`https://wa.me/919959955405?text=${encodeURIComponent(text)}`);
+}
+</script>
 
 </body>
 </html>
