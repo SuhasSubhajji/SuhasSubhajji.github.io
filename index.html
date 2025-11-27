@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Temporary Notepad</title>
+  <style>
+    :root{
+      --bg:#f7f9fb; --panel:#fff; --muted:#6b7280; --accent:#0ea5a4; --danger:#ef4444;
+      --glass: rgba(255,255,255,0.6);
+    }
+    [data-theme="dark"]{
+      --bg:#0b1220; --panel:#071025; --muted:#9aa4b2; --accent:#22d3ee; --danger:#fb7185;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,var(--bg),#fff 85%); color:var(--muted)}
+    .app{
+      max-width:960px; margin:28px auto; padding:18px; background:var(--glass); border-radius:12px;
+      box-shadow:0 6px 30px rgba(2,6,23,0.12); backdrop-filter: blur(6px);
+    }
+    header{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:12px}
+    h1{font-size:18px; margin:0; color:var(--accent)}
+    .controls{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    button, input[type="number"], input[type="text"]{padding:8px 12px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); background:var(--panel); color:inherit; cursor:pointer; font-size:14px}
+    button.secondary{background:transparent; border:1px dashed rgba(0,0,0,0.06)}
+    button.danger{background:transparent; border-color: rgba(239,68,68,0.2); color:var(--danger)}
+    .toolbar {display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .editor {display:flex; gap:12px}
+    textarea{flex:1; min-height:56vh; width:100%; resize:vertical; padding:18px; border-radius:10px; border:1px solid rgba(0,0,0,0.06); background:var(--panel); color:inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace; font-size:15px; line-height:1.5}
+    .sidebar{width:240px; min-width:200px; display:flex; flex-direction:column; gap:12px}
+    .meta{padding:12px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent)}
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+    .small{font-size:13px; color:var(--muted)}
+    .stats{display:flex; gap:12px; justify-content:space-between; margin-top:8px}
+    .msg{padding:8px 10px; border-radius:8px; font-size:13px}
+    .toast{position:fixed; right:18px; bottom:18px; background:var(--panel); padding:10px 14px; border-radius:8px; box-shadow:0 6px 20px rgba(2,6,23,0.12)}
+    @media (max-width:880px){
+      .editor{flex-direction:column}
+      .sidebar{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app" role="application" aria-label="Temporary Notepad">
+    <header>
+      <h1>Temporary Notepad — quick & local</h1>
+      <div class="controls toolbar" role="toolbar" aria-label="Notepad controls">
+        <button id="saveBtn" title="Save (Ctrl/Cmd+S)">💾 Save</button>
+        <button id="downloadBtn" title="Download as .txt">⬇️ Download</button>
+        <button id="copyBtn" title="Copy to clipboard">📋 Copy</button>
+        <button id="clearBtn" class="danger" title="Clear saved note">🗑️ Clear</button>
+        <button id="toggleAuto" class="secondary" title="Toggle autosave">🕒 Autosave: on</button>
+        <button id="themeBtn" class="secondary" title="Toggle dark mode">🌙 Theme</button>
+      </div>
+    </header>
+
+    <div class="editor">
+      <textarea id="note" placeholder="Start typing... (changes are saved to your browser storage)"></textarea>
+
+      <aside class="sidebar" aria-label="Note options">
+        <div class="meta">
+          <label for="expiry">Expiry (minutes, empty = never)</label>
+          <input id="expiry" type="number" min="1" placeholder="e.g. 60">
+          <div class="small">If you set expiry, saved note will auto-delete after that many minutes.</div>
+        </div>
+
+        <div class="meta">
+          <label>Status</label>
+          <div id="status" class="small">No saved note</div>
+          <div class="stats">
+            <div class="small">Words: <strong id="words">0</strong></div>
+            <div class="small">Chars: <strong id="chars">0</strong></div>
+          </div>
+        </div>
+
+        <div class="meta">
+          <label>Quick actions</label>
+          <button id="downloadQuick">Download .txt</button>
+          <button id="copyQuick" class="secondary">Copy</button>
+          <button id="clearQuick" class="danger">Clear</button>
+        </div>
+
+        <div class="meta">
+          <label>Shortcuts</label>
+          <div class="small">Ctrl/Cmd + S → Save</div>
+          <div class="small">Esc (when empty) → Clear</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script>
+    (function(){
+      const KEY = 'tempNotepad_v1';
+      const AUTO_KEY = 'tempNotepad_autosave';
+      const THEME_KEY = 'tempNotepad_theme';
+      const noteEl = document.getElementById('note');
+      const saveBtn = document.getElementById('saveBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const toggleAuto = document.getElementById('toggleAuto');
+      const expiryEl = document.getElementById('expiry');
+      const statusEl = document.getElementById('status');
+      const wordsEl = document.getElementById('words');
+      const charsEl = document.getElementById('chars');
+      const toast = document.getElementById('toast');
+      const themeBtn = document.getElementById('themeBtn');
+      const downloadQuick = document.getElementById('downloadQuick');
+      const copyQuick = document.getElementById('copyQuick');
+      const clearQuick = document.getElementById('clearQuick');
+
+      let autosave = localStorage.getItem(AUTO_KEY) !== 'false'; // default on
+      let autoTimer = null;
+
+      function showToast(msg, timeout=2200){
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        clearTimeout(toast._t);
+        toast._t = setTimeout(()=> toast.style.display = 'none', timeout);
+      }
+
+      function saveNote(){
+        try {
+          const minutes = parseInt(expiryEl.value) || null;
+          const expiry = minutes ? Date.now() + minutes * 60_000 : null;
+          const payload = {
+            content: noteEl.value,
+            savedAt: Date.now(),
+            expiry
+          };
+          localStorage.setItem(KEY, JSON.stringify(payload));
+          updateStatus();
+          showToast('Saved locally');
+        } catch(e){
+          console.error(e);
+          showToast('Save failed');
+        }
+      }
+
+      function loadNote(){
+        const raw = localStorage.getItem(KEY);
+        if(!raw) {
+          statusEl.textContent = 'No saved note';
+          return;
+        }
+        try {
+          const obj = JSON.parse(raw);
+          if(obj.expiry && Date.now() > obj.expiry){
+            localStorage.removeItem(KEY);
+            statusEl.textContent = 'Saved note expired & removed';
+            showToast('Saved note expired');
+            return;
+          }
+          noteEl.value = obj.content || '';
+          expiryEl.value = obj.expiry ? Math.max(1, Math.round((obj.expiry - obj.savedAt)/60000)) : '';
+          updateStats();
+          updateStatus();
+        } catch(e){
+          console.error(e);
+          localStorage.removeItem(KEY);
+        }
+      }
+
+      function clearNote(confirmSave=false){
+        if(confirmSave && !confirm('Clear saved note and editor?')) return;
+        noteEl.value = '';
+        localStorage.removeItem(KEY);
+        updateStats();
+        updateStatus();
+        showToast('Cleared');
+      }
+
+      function downloadText(filename='note.txt'){
+        const text = noteEl.value || '';
+        const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function copyText(){
+        navigator.clipboard.writeText(noteEl.value || '').then(()=> showToast('Copied to clipboard'), ()=> showToast('Copy failed'));
+      }
+
+      function updateStats(){
+        const text = noteEl.value || '';
+        const chars = text.length;
+        const words = text.trim().length ? text.trim().split(/\s+/).length : 0;
+        charsEl.textContent = chars;
+        wordsEl.textContent = words;
+      }
+
+      function updateStatus(){
+        const raw = localStorage.getItem(KEY);
+        if(!raw){ statusEl.textContent = 'No saved note'; return; }
+        try{
+          const obj = JSON.parse(raw);
+          const dt = new Date(obj.savedAt);
+          const when = dt.toLocaleString();
+          if(obj.expiry){
+            const remaining = Math.max(0, obj.expiry - Date.now());
+            const mins = Math.ceil(remaining / 60000);
+            statusEl.textContent = `Saved: ${when} • expires in ${mins} min`;
+          } else {
+            statusEl.textContent = `Saved: ${when} • no expiry`;
+          }
+        } catch(e){ statusEl.textContent = 'Saved (unreadable meta)'; }
+      }
+
+      function setAutosave(on){
+        autosave = !!on;
+        localStorage.setItem(AUTO_KEY, autosave ? 'true' : 'false');
+        toggleAuto.textContent = '🕒 Autosave: ' + (autosave ? 'on' : 'off');
+        if(autosave) startAuto();
+        else stopAuto();
+      }
+
+      function startAuto(){
+        stopAuto();
+        autoTimer = setInterval(()=>{
+          saveNote();
+        }, 2500);
+      }
+      function stopAuto(){
+        if(autoTimer) clearInterval(autoTimer);
+        autoTimer = null;
+      }
+
+      // keyboard shortcuts
+      document.addEventListener('keydown', (e)=>{
+        if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){
+          e.preventDefault();
+          saveNote();
+        }
+        if(e.key === 'Escape' && noteEl.value.trim() === ''){
+          clearNote(true);
+        }
+      });
+
+      // theme
+      function applyTheme(theme){
+        if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
+        else document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem(THEME_KEY, theme);
+      }
+      (function initTheme(){
+        const saved = localStorage.getItem(THEME_KEY) || (window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+        applyTheme(saved);
+      })();
+
+      // events
+      saveBtn.addEventListener('click', saveNote);
+      downloadBtn.addEventListener('click', ()=> downloadText('note.txt'));
+      copyBtn.addEventListener('click', copyText);
+      clearBtn.addEventListener('click', ()=> {
+        if(confirm('Clear editor and remove saved note?')) clearNote();
+      });
+      toggleAuto.addEventListener('click', ()=> setAutosave(!autosave));
+      noteEl.addEventListener('input', ()=>{
+        updateStats();
+        if(!autosave) return;
+        // debounced save handled by interval; optionally you could also save here:
+      });
+      expiryEl.addEventListener('change', ()=> {
+        showToast('Expiry updated (save to apply)');
+      });
+      themeBtn.addEventListener('click', ()=>{
+        const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        applyTheme(current === 'dark' ? 'light' : 'dark');
+        showToast('Theme toggled');
+      });
+
+      downloadQuick.addEventListener('click', ()=> downloadText('note.txt'));
+      copyQuick.addEventListener('click', copyText);
+      clearQuick.addEventListener('click', ()=> { if(confirm('Clear editor and remove saved note?')) clearNote(); });
+
+      // initialize
+      setAutosave(localStorage.getItem(AUTO_KEY) !== 'false');
+      loadNote();
+      updateStats();
+      if(autosave) startAuto();
+      updateStatus();
+
+      // periodic check for expiry (edge case if time passes while page open)
+      setInterval(()=> {
+        const raw = localStorage.getItem(KEY);
+        if(!raw) return;
+        try {
+          const obj = JSON.parse(raw);
+          if(obj.expiry && Date.now() > obj.expiry){
+            localStorage.removeItem(KEY);
+            if(noteEl.value === obj.content) noteEl.value = '';
+            updateStats();
+            updateStatus();
+            showToast('Saved note expired');
+          }
+        } catch(e){}
+      }, 5000);
+
+      // warn before losing unsaved typed content if not saved to storage
+      window.addEventListener('beforeunload', (e)=>{
+        // we'll not prevent unload, but give a subtle prompt if content present and not saved
+        // modern browsers ignore custom message; just set returnValue to show a prompt in some browsers
+        const raw = localStorage.getItem(KEY);
+        const typed = noteEl.value || '';
+        if(!raw && typed.trim().length > 0){
+          e.returnValue = '';
+          return '';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
