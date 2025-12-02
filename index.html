@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Helicopter Dodge — Single File</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  html,body{height:100%;margin:0;background:#0b1220;color:#e6f1ff;font-family:system-ui,Arial}
+  .wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px}
+  canvas{background:linear-gradient(#071428,#001726);border:6px solid #072b3a; image-rendering:pixelated;display:block}
+  .hud{display:flex;gap:12px;align-items:center}
+  button{padding:6px 10px;border-radius:8px;border:1px solid #214; background:#082734;color:#cfe;cursor:pointer}
+  .muted{opacity:.8;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 style="margin:0;font-size:20px">Helicopter — Dodge Forward</h1>
+  <div class="hud">
+    <div>Score: <strong id="score">0</strong></div>
+    <div style="width:10px"></div>
+    <button id="restart">Restart</button>
+    <div class="muted">Hold mouse / touch / space to lift</div>
+  </div>
+  <canvas id="game" width="800" height="480"></canvas>
+  <p class="muted" style="max-width:720px;text-align:center;margin:6px 0 0 0">
+    Avoid obstacles. The helicopter automatically moves right; use lift to avoid collisions. Mobile-friendly.
+  </p>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Game params
+  let gravity = 0.45;       // downward acceleration per frame
+  let liftPower = -9.4;     // instantaneous velocity when input starts (gives snappy control)
+  let hovering = false;     // true while holding input
+  let maxVel = 12;
+  let forwardSpeed = 3.2;   // speed at which obstacles travel left
+  let spawnInterval = 1500; // ms between obstacle pairs (will get faster)
+  let lastSpawn = 0;
+  let difficultyRamp = 0.00012; // increases speed/spacing over time
+
+  // Helicopter state
+  const heli = {
+    x: 140,
+    y: H/2,
+    w: 56,
+    h: 24,
+    vy: 0,
+    alive: true,
+    tilt: 0
+  };
+
+  // Obstacles: each is {x, gapY, gapH, w}
+  let obstacles = [];
+  let score = 0;
+  let best = Number(localStorage.getItem('helicopter_best')||0);
+  const scoreEl = document.getElementById('score');
+
+  // Input handling: support mouse, touch, keyboard
+  let inputActive = false;
+  function startInput(){ inputActive = true; hovering = true; heli.vy = Math.max(heli.vy + liftPower * 0.08, -maxVel); }
+  function stopInput(){ inputActive = false; hovering = false; }
+
+  window.addEventListener('mousedown', e => { e.preventDefault(); startInput(); });
+  window.addEventListener('mouseup', e => stopInput());
+  window.addEventListener('touchstart', e => { e.preventDefault(); startInput(); }, {passive:false});
+  window.addEventListener('touchend', e => { e.preventDefault(); stopInput(); }, {passive:false});
+  window.addEventListener('keydown', e => { if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); startInput(); }});
+  window.addEventListener('keyup', e => { if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); stopInput(); }});
+
+  // Restart
+  const restartBtn = document.getElementById('restart');
+  restartBtn.addEventListener('click', resetGame);
+
+  // Helpers
+  function rand(min,max){ return min + Math.random()*(max-min); }
+
+  function spawnObstacle(now){
+    // make a gap somewhere vertically
+    const minGap = Math.max(100, 180 - Math.floor(score/50)); // gap shrinks slightly with score
+    const maxGap = Math.max(minGap, 220 - Math.floor(score/30));
+    const gapH = Math.round(rand(minGap, maxGap));
+    const margin = 40;
+    const gapY = Math.round(rand(margin, H - margin - gapH));
+    obstacles.push({ x: W + 60, gapY, gapH, w: 56, passed:false });
+    lastSpawn = now;
+  }
+
+  function resetGame(){
+    obstacles = [];
+    score = 0;
+    heli.y = H/2;
+    heli.vy = 0;
+    heli.alive = true;
+    heli.tilt = 0;
+    spawnInterval = 1500;
+    lastSpawn = performance.now();
+    scoreEl.textContent = score;
+  }
+
+  // Collision detection rectangle-based
+  function intersectsRect(ax,ay,aw,ah, bx,by,bw,bh){
+    return !(ax+aw < bx || ax > bx+bw || ay+ah < by || ay > by+bh);
+  }
+
+  // Draw simple helicopter sprite
+  function drawHeli(x,y,w,h, tilt){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(tilt);
+    // body
+    ctx.fillStyle = '#ffd64d';
+    roundRect(ctx, -w/2, -h/2, w, h, 6);
+    ctx.fill();
+    // cockpit
+    ctx.fillStyle = '#0b2638';
+    roundRect(ctx, -w/6, -h/4, w/2, h/1.6, 3);
+    ctx.fill();
+    // tail
+    ctx.fillStyle = '#ffd64d';
+    ctx.fillRect(w/2 - 6, -3, 26, 6);
+    // rotor (top)
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-40, -h/2 - 6);
+    ctx.lineTo(40, -h/2 - 6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  // Main loop
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(40, now - last); // clamp for stability (ms)
+    last = now;
+
+    if (heli.alive) {
+      // Difficulty increases slightly with time/score
+      forwardSpeed += difficultyRamp * dt;
+      spawnInterval = Math.max(700, spawnInterval - difficultyRamp*8*dt);
+
+      // spawn obstacles periodically
+      if (now - lastSpawn > spawnInterval) spawnObstacle(now);
+
+      // physics: gravity and lift
+      if (inputActive) {
+        // apply lift gradually while input active for smoother control
+        heli.vy += liftPower * 0.06;
+      } else {
+        heli.vy += gravity;
+      }
+      // clamp velocity
+      heli.vy = Math.max(-maxVel, Math.min(maxVel, heli.vy));
+      heli.y += heli.vy;
+
+      // tilt visuals from velocity
+      heli.tilt = Math.max(-0.5, Math.min(0.4, heli.vy * 0.022));
+
+      // floor/ceiling collisions
+      if (heli.y - heli.h/2 < 0) {
+        heli.y = heli.h/2; heli.vy = 0;
+      }
+      if (heli.y + heli.h/2 > H) {
+        heli.y = H - heli.h/2; heli.vy = 0; heli.alive = false;
+      }
+
+      // move obstacles left
+      for (let ob of obstacles) {
+        ob.x -= forwardSpeed;
+        // scoring when obstacle passes helicopter center
+        if (!ob.passed && ob.x + ob.w < heli.x - 6) {
+          ob.passed = true;
+          score += 1;
+          scoreEl.textContent = score;
+          if (score > best) { best = score; localStorage.setItem('helicopter_best', best); }
+        }
+      }
+
+      // remove off-screen obstacles
+      obstacles = obstacles.filter(o => o.x + o.w > -60);
+
+      // collision checks with obstacles
+      for (let ob of obstacles) {
+        // top rect
+        const topRect = {x: ob.x, y: 0, w: ob.w, h: ob.gapY};
+        const bottomRect = {x: ob.x, y: ob.gapY + ob.gapH, w: ob.w, h: H - (ob.gapY + ob.gapH)};
+        const heliRect = {x: heli.x - heli.w/2 + 6, y: heli.y - heli.h/2 + 4, w: heli.w - 12, h: heli.h - 8};
+        if (intersectsRect(heliRect.x, heliRect.y, heliRect.w, heliRect.h, topRect.x, topRect.y, topRect.w, topRect.h)
+         || intersectsRect(heliRect.x, heliRect.y, heliRect.w, heliRect.h, bottomRect.x, bottomRect.y, bottomRect.w, bottomRect.h)) {
+          heli.alive = false;
+        }
+      }
+    } else {
+      // if dead, slowly fall
+      heli.vy += gravity;
+      heli.y += heli.vy;
+    }
+
+    // draw frame
+    render();
+
+    requestAnimationFrame(loop);
+  }
+
+  // Rendering
+  function render(){
+    // background
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, '#071b29'); grad.addColorStop(1, '#00202b');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+
+    // ground + distant mountains (parallax)
+    ctx.fillStyle = '#053744';
+    ctx.fillRect(0, H - 64, W, 64);
+    // faint grid lines for motion feel
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let x = (Date.now()%300)-300; x < W; x += 60) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H-64); ctx.stroke();
+    }
+
+    // obstacles (pillars)
+    for (let ob of obstacles) {
+      const sx = ob.x, sw = ob.w;
+      // top pillar
+      ctx.fillStyle = '#1db2a1';
+      ctx.fillRect(sx, 0, sw, ob.gapY);
+      // bottom pillar
+      ctx.fillRect(sx, ob.gapY + ob.gapH, sw, H - (ob.gapY + ob.gapH) - 64);
+      // inner shading
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      ctx.fillRect(sx + sw*0.6, 0, sw*0.2, ob.gapY);
+      ctx.fillRect(sx + sw*0.6, ob.gapY + ob.gapH, sw*0.2, H - (ob.gapY + ob.gapH) - 64);
+    }
+
+    // helicopter
+    drawHeli(heli.x, heli.y, heli.w, heli.h, heli.tilt);
+
+    // HUD: score & best
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(8,8,150,44);
+    ctx.fillStyle = '#bfffe6';
+    ctx.font = '18px system-ui, Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('Score: ' + score, 18, 30);
+    ctx.fillStyle = '#9fe7ff';
+    ctx.font = '13px system-ui, Arial';
+    ctx.fillText('Best: ' + best, 18, 46);
+
+    // if dead, overlay message
+    if (!heli.alive) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, H/2 - 60, W, 120);
+      ctx.fillStyle = '#ffbaba';
+      ctx.font = '40px system-ui, Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Crashed!', W/2, H/2 - 6);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '18px system-ui, Arial';
+      ctx.fillText('Click Restart or press Space to play again', W/2, H/2 + 28);
+    }
+  }
+
+  // restart also on space if dead
+  window.addEventListener('keydown', e => {
+    if (!heli.alive && (e.code === 'Space' || e.key === ' ')) {
+      resetGame();
+    }
+  });
+
+  // initial spawn and loop start
+  resetGame();
+  last = performance.now();
+  requestAnimationFrame(loop);
+
+  // allow resize of canvas while keeping aspect ratio (optional)
+  window.addEventListener('resize', () => {
+    const containerW = Math.min(window.innerWidth - 40, 1000);
+    const scale = containerW / W;
+    canvas.style.width = Math.round(W * scale) + 'px';
+    canvas.style.height = Math.round(H * scale) + 'px';
+  });
+  window.dispatchEvent(new Event('resize'));
+})();
+</script>
+</body>
+</html>
