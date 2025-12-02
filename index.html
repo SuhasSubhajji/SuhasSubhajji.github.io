@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Mini Pac-Man — Single File</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  html,body{height:100%;margin:0;background:#111;color:#eee;font-family:system-ui,Arial}
+  .wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px}
+  canvas{background:#000;border:6px solid #071; image-rendering:pixelated;}
+  .hud{display:flex;gap:16px;align-items:center}
+  button{padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#eee;cursor:pointer}
+  small{opacity:.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Mini Pac-Man</h2>
+  <div class="hud">
+    <div>Score: <span id="score">0</span></div>
+    <div>Pellets left: <span id="pellets">0</span></div>
+    <button id="restart">Restart</button>
+    <small>Use ← ↑ → ↓ or WASD</small>
+  </div>
+  <canvas id="c" width="560" height="560"></canvas>
+  <p style="max-width:640px;text-align:center;margin:0">
+    Simple Pac-Man clone: eat all pellets to win. Ghosts move randomly. This is intentionally compact & editable.
+  </p>
+</div>
+
+<script>
+(() => {
+  // Config
+  const TILE = 20;
+  const ROWS = 28; // height in tiles
+  const COLS = 28; // width in tiles
+  const canvas = document.getElementById('c');
+  canvas.width = COLS * TILE;
+  canvas.height = ROWS * TILE;
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const pelletsEl = document.getElementById('pellets');
+  const restartBtn = document.getElementById('restart');
+
+  // Maze: 0 = empty, 1 = wall, 2 = pellet
+  // Small handcrafted maze pattern (28x28). Feel free to edit.
+  const raw = [
+    "1111111111111111111111111111",
+    "1000000000001000000000000001",
+    "1011110111101011110111101101",
+    "1020000100001000000100000201",
+    "1010110111111011110110101101",
+    "1000100000001000000000100001",
+    "1110111111101011111111101111",
+    "0000100000101000001000001000",
+    "1110110111101011110111101111",
+    "1000000100001000000100000001",
+    "1011110111111011110111111101",
+    "1020000000001000000000000201",
+    "1010111111101011111111101101",
+    "1000100000001000000000100001",
+    "1010110111111011110110101101",
+    "1020000100001000000100000201",
+    "1011110111101011110111101101",
+    "1000000000001000000000000001",
+    "1111111111111111111111111111",
+    // Fill to 28 rows by repeating a pattern
+  ];
+  // If raw has fewer than ROWS rows, repeat last rows to reach ROWS
+  while (raw.length < ROWS) raw.push(raw[raw.length - 1]);
+
+  const grid = [];
+  for (let r = 0; r < ROWS; r++) {
+    grid[r] = [];
+    const row = raw[r] || raw[raw.length - 1];
+    for (let c = 0; c < COLS; c++) {
+      const ch = row[c % row.length] || '1';
+      if (ch === '0') grid[r][c] = 0;       // empty
+      else if (ch === '1') grid[r][c] = 1;  // wall
+      else if (ch === '2') grid[r][c] = 2;  // pellet
+      else grid[r][c] = 1;
+    }
+  }
+
+  // Count pellets at start
+  let pelletCount = 0;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (grid[r][c] === 2) pelletCount++;
+
+  pelletsEl.textContent = pelletCount;
+
+  // Player (Pac-Man)
+  const player = {
+    r: 13, c: 14,
+    dir: {x:0,y:0}, nextDir: {x:0,y:0},
+    speed: 4 // pixels per tick
+  };
+
+  // Ghost(s) - simple random-moving ghosts
+  const ghosts = [
+    {r: 13.5, c: 11.5, color: '#ff3860', dir: {x:1,y:0}, speed: 3},
+    {r: 13.5, c: 16.5, color: '#60b8ff', dir: {x:-1,y:0}, speed: 3}
+  ];
+
+  let score = 0;
+  let gameOver = false;
+  let win = false;
+
+  // Keyboard
+  const keyMap = {
+    'ArrowLeft': {x:-1,y:0}, 'ArrowRight': {x:1,y:0}, 'ArrowUp': {x:0,y:-1}, 'ArrowDown': {x:0,y:1},
+    'a': {x:-1,y:0}, 'd': {x:1,y:0}, 'w': {x:0,y:-1}, 's': {x:0,y:1}
+  };
+
+  window.addEventListener('keydown', e => {
+    const k = e.key;
+    if (keyMap[k]) {
+      player.nextDir = keyMap[k];
+      e.preventDefault();
+    }
+  });
+
+  function tileCenter(r,c){ return {x: c * TILE + TILE/2, y: r * TILE + TILE/2}; }
+
+  function canMoveToTile(r, c){
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+    return grid[r][c] !== 1;
+  }
+
+  // attempt to change direction when centered in tile
+  function tryChangeDirection(){
+    const px = playerPixelX(), py = playerPixelY();
+    const centeredX = Math.abs(px - (Math.round(px / TILE) * TILE + TILE/2)) < 1;
+    const centeredY = Math.abs(py - (Math.round(py / TILE) * TILE + TILE/2)) < 1;
+    if (!centeredX && !centeredY) return;
+
+    if (player.nextDir.x !== 0 || player.nextDir.y !== 0) {
+      const nr = Math.round(player.r) + player.nextDir.y;
+      const nc = Math.round(player.c) + player.nextDir.x;
+      if (canMoveToTile(nr, nc)) {
+        player.dir = {...player.nextDir};
+      }
+    }
+  }
+
+  function playerPixelX(){ return player.c * TILE + TILE/2; }
+  function playerPixelY(){ return player.r * TILE + TILE/2; }
+
+  function updatePlayer(dt){
+    if (gameOver || win) return;
+    tryChangeDirection();
+
+    // Move in current direction if possible
+    const targetR = player.r + player.dir.y * (player.speed / TILE);
+    const targetC = player.c + player.dir.x * (player.speed / TILE);
+    // collision check: sample next tile in direction
+    const lookR = Math.round(player.r + (player.dir.y || 0));
+    const lookC = Math.round(player.c + (player.dir.x || 0));
+    if (player.dir.x !== 0 || player.dir.y !== 0) {
+      if (!canMoveToTile(lookR, lookC)) {
+        // if immediate tile blocked, stop (snap to center)
+        const curR = Math.round(player.r);
+        const curC = Math.round(player.c);
+        player.r = curR;
+        player.c = curC;
+        player.dir = {x:0,y:0};
+      } else {
+        player.r = targetR;
+        player.c = targetC;
+      }
+    }
+
+    // wrap-around edges
+    if (player.c < 0) player.c = COLS - 1;
+    if (player.c >= COLS) player.c = 0;
+    if (player.r < 0) player.r = ROWS - 1;
+    if (player.r >= ROWS) player.r = 0;
+
+    // eat pellet if on pellet tile
+    const pr = Math.round(player.r);
+    const pc = Math.round(player.c);
+    if (grid[pr][pc] === 2) {
+      grid[pr][pc] = 0;
+      score += 10;
+      pelletCount--;
+      scoreEl.textContent = score;
+      pelletsEl.textContent = pelletCount;
+      if (pelletCount <= 0) win = true;
+    }
+  }
+
+  // Ghost movement simple: at tile centers choose random valid direction not opposite of current
+  function updateGhost(ghost, dt){
+    // move pixel-wise
+    const px = ghost.c * TILE + TILE/2;
+    const py = ghost.r * TILE + TILE/2;
+
+    // if centered in tile, pick a direction
+    const centered = Math.abs(px - (Math.round(px / TILE) * TILE + TILE/2)) < 1
+                  && Math.abs(py - (Math.round(py / TILE) * TILE + TILE/2)) < 1;
+    if (centered) {
+      const cr = Math.round(ghost.r);
+      const cc = Math.round(ghost.c);
+      const choices = [];
+      const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+      for (const d of dirs) {
+        const nr = cr + d.y, nc = cc + d.x;
+        if (canMoveToTile(nr,nc)) {
+          // avoid reversing direction unless no choice
+          if (!(ghost.dir.x === -d.x && ghost.dir.y === -d.y)) choices.push(d);
+        }
+      }
+      if (choices.length === 0) {
+        // allow reverse
+        for (const d of dirs) {
+          const nr = cr + d.y, nc = cc + d.x;
+          if (canMoveToTile(nr,nc)) choices.push(d);
+        }
+      }
+      if (choices.length) {
+        const pick = choices[Math.floor(Math.random()*choices.length)];
+        ghost.dir = pick;
+      } else {
+        ghost.dir = {x:0,y:0};
+      }
+    }
+
+    ghost.c += ghost.dir.x * (ghost.speed / TILE);
+    ghost.r += ghost.dir.y * (ghost.speed / TILE);
+
+    // collisions with player?
+    const dist = Math.hypot((ghost.c - player.c), (ghost.r - player.r));
+    if (dist < 0.5) {
+      gameOver = true;
+    }
+  }
+
+  // Draw scene
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // walls and pellets
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        const x = c * TILE, y = r * TILE;
+        if (grid[r][c] === 1) {
+          ctx.fillStyle = '#0b4';
+          ctx.fillRect(x, y, TILE, TILE);
+        } else if (grid[r][c] === 2) {
+          // pellet
+          ctx.beginPath();
+          ctx.fillStyle = '#ffd';
+          ctx.arc(x + TILE/2, y + TILE/2, TILE/8, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // Pac-Man (draw mouth based on direction)
+    const px = playerPixelX(), py = playerPixelY();
+    const mouthAngle = 0.25 + 0.2 * Math.sin(Date.now()/120);
+    let angleStart = 0, angleEnd = Math.PI*2;
+    if (player.dir.x === 1) { angleStart = mouthAngle; angleEnd = -mouthAngle; }
+    else if (player.dir.x === -1) { angleStart = Math.PI - mouthAngle; angleEnd = Math.PI + mouthAngle; }
+    else if (player.dir.y === -1) { angleStart = -Math.PI/2 + mouthAngle; angleEnd = -Math.PI/2 - mouthAngle; }
+    else if (player.dir.y === 1) { angleStart = Math.PI/2 + mouthAngle; angleEnd = Math.PI/2 - mouthAngle; }
+    ctx.fillStyle = '#ffeb3b';
+    ctx.beginPath();
+    ctx.moveTo(px,py);
+    ctx.arc(px,py,TILE*0.45,angleStart,angleEnd);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ghosts
+    for (const g of ghosts) {
+      const gx = g.c * TILE + TILE/2;
+      const gy = g.r * TILE + TILE/2;
+      // body
+      ctx.beginPath();
+      ctx.fillStyle = g.color;
+      ctx.arc(gx, gy, TILE*0.42, Math.PI, 0);
+      ctx.rect(gx - TILE*0.42, gy, TILE*0.84, TILE*0.42);
+      ctx.fill();
+      // eyes
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(gx - TILE*0.12, gy - TILE*0.02, TILE*0.12,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gx + TILE*0.12, gy - TILE*0.02, TILE*0.12,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(gx - TILE*0.12, gy - TILE*0.02, TILE*0.06,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gx + TILE*0.12, gy - TILE*0.02, TILE*0.06,0,Math.PI*2); ctx.fill();
+    }
+
+    // overlay messages
+    if (gameOver) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, canvas.height/2 - 40, canvas.width, 80);
+      ctx.fillStyle = '#ff6b6b'; ctx.font = '36px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('Game Over', canvas.width/2, canvas.height/2 + 12);
+    } else if (win) {
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      ctx.fillRect(0, canvas.height/2 - 40, canvas.width, 80);
+      ctx.fillStyle = '#64ffda'; ctx.font = '32px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('You Win! Score: ' + score, canvas.width/2, canvas.height/2 + 10);
+    }
+  }
+
+  // Game loop
+  let last = performance.now();
+  function loop(now){
+    const dt = now - last;
+    last = now;
+    // Small fixed-step updates for movement smoothness
+    updatePlayer(dt);
+    for (const g of ghosts) updateGhost(g, dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Helpers to reset game
+  function reset(){
+    // rebuild grid from raw to restore pellets
+    for (let r=0;r<ROWS;r++) {
+      for (let c=0;c<COLS;c++) {
+        const ch = (raw[r]||raw[raw.length-1])[c % (raw[r]||raw[raw.length-1]).length] || '1';
+        if (ch === '2') grid[r][c] = 2;
+        else if (ch === '0') grid[r][c] = 0;
+        else grid[r][c] = 1;
+      }
+    }
+    pelletCount = 0;
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (grid[r][c] === 2) pelletCount++;
+    pelletsEl.textContent = pelletCount;
+
+    player.r = 13; player.c = 14; player.dir = {x:0,y:0}; player.nextDir = {x:0,y:0};
+    ghosts[0].r = 13.5; ghosts[0].c = 11.5; ghosts[0].dir = {x:1,y:0};
+    ghosts[1].r = 13.5; ghosts[1].c = 16.5; ghosts[1].dir = {x:-1,y:0};
+    score = 0; scoreEl.textContent = score;
+    gameOver = false; win = false;
+  }
+
+  restartBtn.addEventListener('click', reset);
+
+  // start
+  reset();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
