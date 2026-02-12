@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>3D Self Solving Ghost Cube</title>
+<style>
+body{
+  margin:0;
+  background:#111;
+  color:white;
+  font-family:Arial;
+  text-align:center;
+  overflow:hidden;
+}
+#scene{
+  width:100vw;
+  height:80vh;
+  perspective:800px;
+}
+#cube{
+  width:150px;
+  height:150px;
+  position:relative;
+  transform-style:preserve-3d;
+  margin:auto;
+  top:100px;
+}
+.face{
+  position:absolute;
+  width:150px;
+  height:150px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:3px;
+}
+.cell{
+  width:100%;
+  height:100%;
+  border-radius:6px;
+}
+button{
+  padding:10px 20px;
+  margin:10px;
+  font-size:16px;
+}
+</style>
+</head>
+<body>
+
+<h2>🧩 3D Self Solving Ghost Cube</h2>
+
+<div id="scene">
+  <div id="cube"></div>
+</div>
+
+<button onclick="randomize()">Random Ghost Scramble</button>
+<button onclick="autoSolve()">Self Solve</button>
+
+<script>
+const colors=["red","green","blue","orange","white","yellow"];
+let cubeData=[];
+let scrambleMoves=[];
+let rotX=-30,rotY=30;
+
+function initCube(){
+ cubeData=[];
+ for(let i=0;i<6;i++){
+   cubeData.push(Array(9).fill(colors[i]));
+ }
+}
+
+function createFaces(){
+ const cube=document.getElementById("cube");
+ cube.innerHTML="";
+ const transforms=[
+  "rotateY(0deg) translateZ(75px)",
+  "rotateY(180deg) translateZ(75px)",
+  "rotateY(90deg) translateZ(75px)",
+  "rotateY(-90deg) translateZ(75px)",
+  "rotateX(90deg) translateZ(75px)",
+  "rotateX(-90deg) translateZ(75px)"
+ ];
+ cubeData.forEach((face,i)=>{
+   const f=document.createElement("div");
+   f.className="face";
+   f.style.transform=transforms[i];
+   face.forEach(c=>{
+     const cell=document.createElement("div");
+     cell.className="cell";
+     cell.style.background=c;
+     f.appendChild(cell);
+   });
+   cube.appendChild(f);
+ });
+}
+
+function draw(){
+ document.getElementById("cube").style.transform=
+   `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+ createFaces();
+}
+
+function rotateFace(i){
+ const f=cubeData[i];
+ cubeData[i]=[
+   f[6],f[3],f[0],
+   f[7],f[4],f[1],
+   f[8],f[5],f[2]
+ ];
+}
+
+function move(m){
+ rotateFace(m);
+}
+
+function randomize(){
+ initCube();
+ scrambleMoves=[];
+ for(let i=0;i<15;i++){
+   let m=Math.floor(Math.random()*6);
+   scrambleMoves.push(m);
+   move(m);
+ }
+ draw();
+}
+
+function autoSolve(){
+ let reverse=[...scrambleMoves].reverse();
+ let i=0;
+ let timer=setInterval(()=>{
+   if(i>=reverse.length){
+     clearInterval(timer);
+     return;
+   }
+   move(reverse[i]);
+   draw();
+   i++;
+ },300);
+}
+
+let dragging=false,lastX,lastY;
+document.addEventListener("mousedown",e=>{
+ dragging=true;lastX=e.clientX;lastY=e.clientY;
+});
+document.addEventListener("mousemove",e=>{
+ if(!dragging)return;
+ rotY+=(e.clientX-lastX)*0.5;
+ rotX-=(e.clientY-lastY)*0.5;
+ lastX=e.clientX;lastY=e.clientY;
+ draw();
+});
+document.addEventListener("mouseup",()=>dragging=false);
+
+document.addEventListener("touchstart",e=>{
+ dragging=true;
+ lastX=e.touches[0].clientX;
+ lastY=e.touches[0].clientY;
+});
+document.addEventListener("touchmove",e=>{
+ if(!dragging)return;
+ rotY+=(e.touches[0].clientX-lastX)*0.5;
+ rotX-=(e.touches[0].clientY-lastY)*0.5;
+ lastX=e.touches[0].clientX;
+ lastY=e.touches[0].clientY;
+ draw();
+});
+document.addEventListener("touchend",()=>dragging=false);
+
+initCube();
+draw();
+</script>
+
+</body>
+</html>
