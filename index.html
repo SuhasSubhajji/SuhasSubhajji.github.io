@@ -1,50 +1,374 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Keep PC Awake</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nifty Meter — Bull/Bear breadth &amp; momentum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0F14;
+    --surface: #121821;
+    --surface-2: #1A2230;
+    --line: #263041;
+    --text: #DCE3EC;
+    --text-dim: #8A97A8;
+    --bull: #3FC98A;
+    --bear: #F2605A;
+    --amber: #E0A94C;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono', monospace; }
+  h1,h2,.display{ font-family:'Space Grotesk', sans-serif; }
+
+  .wrap{ max-width:920px; margin:0 auto; padding:40px 20px 80px; }
+
+  header{ display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom:32px; flex-wrap:wrap; gap:8px; }
+  header h1{ font-size:1.35rem; font-weight:700; margin:0; letter-spacing:-0.01em; }
+  header .sub{ color:var(--text-dim); font-size:0.82rem; }
+
+  .meter-card{ background:var(--surface); border:1px solid var(--line);
+    border-radius:10px; padding:28px 28px 24px; margin-bottom:20px; }
+
+  .score-row{ display:flex; align-items:flex-end; justify-content:space-between;
+    margin-bottom:18px; flex-wrap:wrap; gap:12px; }
+  .score-big{ font-family:'Space Grotesk', sans-serif; font-size:3rem;
+    font-weight:700; line-height:1; }
+  .score-label{ color:var(--text-dim); font-size:0.78rem; margin-top:4px; }
+  .status-pill{ padding:5px 14px; border-radius:999px; font-size:0.78rem;
+    font-weight:500; border:1px solid; }
+
+  .bar-track{ height:14px; border-radius:7px; overflow:hidden; display:flex;
+    background:var(--surface-2); border:1px solid var(--line); }
+  .bar-bear{ background:var(--bear); }
+  .bar-bull{ background:var(--bull); }
+
+  .bar-legend{ display:flex; justify-content:space-between; margin-top:8px;
+    font-size:0.78rem; color:var(--text-dim); }
+
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+  @media (max-width:640px){ .grid-2{ grid-template-columns:1fr; } }
+
+  .stat-card{ background:var(--surface); border:1px solid var(--line);
+    border-radius:10px; padding:18px 20px; }
+  .stat-card .label{ color:var(--text-dim); font-size:0.75rem; margin-bottom:6px; }
+  .stat-card .value{ font-family:'Space Grotesk', sans-serif; font-size:1.5rem;
+    font-weight:700; }
+
+  table{ width:100%; border-collapse:collapse; font-size:0.82rem; }
+  th{ text-align:left; color:var(--text-dim); font-weight:500; padding:6px 8px;
+    border-bottom:1px solid var(--line); font-size:0.72rem; }
+  td{ padding:6px 8px; border-bottom:1px solid var(--line); }
+  tr:last-child td{ border-bottom:none; }
+  .pos{ color:var(--bull); } .neg{ color:var(--bear); }
+
+  .panel-title{ font-family:'Space Grotesk', sans-serif; font-weight:700;
+    font-size:0.95rem; margin:0 0 14px; }
+
+  button{ background:var(--surface-2); color:var(--text); border:1px solid var(--line);
+    border-radius:6px; padding:8px 16px; font-family:inherit; font-size:0.82rem;
+    cursor:pointer; }
+  button:hover{ border-color:var(--amber); }
+  button:disabled{ opacity:0.5; cursor:default; }
+
+  .note{ color:var(--text-dim); font-size:0.76rem; line-height:1.6; margin-top:28px;
+    border-top:1px solid var(--line); padding-top:18px; }
+  .note code{ background:var(--surface-2); padding:1px 5px; border-radius:4px; }
+
+  .tune-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .tune-chip{ font-size:0.72rem; padding:3px 8px; border-radius:5px;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-dim); }
+  .tune-chip.best{ color:var(--amber); border-color:var(--amber); }
+</style>
 </head>
 <body>
-  <h1>Keep Awake Demo</h1>
-  <button id="wakeBtn">Activate Wake Lock</button>
-  <button id="releaseBtn">Release Wake Lock</button>
-  <p id="status">Status: idle</p>
+<div class="wrap">
 
-  <script>
-    let wakeLock = null;
+  <header>
+    <h1>Nifty Meter</h1>
+    <div class="sub" id="lastUpdated">not yet loaded</div>
+  </header>
 
-    async function requestWakeLock() {
-      if ("wakeLock" in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request("screen");
-          document.getElementById("status").textContent = "Status: Wake Lock active";
-          wakeLock.addEventListener("release", () => {
-            document.getElementById("status").textContent = "Status: Wake Lock released";
-          });
-        } catch (err) {
-          document.getElementById("status").textContent = `Error: ${err.message}`;
-        }
-      } else {
-        // Fallback: keep system awake by playing a tiny hidden video
-        const video = document.createElement("video");
-        video.src = "data:video/mp4;base64,AAAA..."; // very short silent video
-        video.loop = true;
-        video.muted = true;
-        video.play();
-        document.body.appendChild(video);
-        document.getElementById("status").textContent = "Status: Fallback video playing";
-      }
+  <div class="meter-card">
+    <div class="score-row">
+      <div>
+        <div class="score-big" id="netScore">—</div>
+        <div class="score-label">net score, −100 (bear) to +100 (bull)</div>
+      </div>
+      <div class="status-pill" id="statusPill" style="border-color:var(--text-dim); color:var(--text-dim)">
+        loading
+      </div>
+    </div>
+    <div class="bar-track">
+      <div class="bar-bear" id="barBear" style="width:50%"></div>
+      <div class="bar-bull" id="barBull" style="width:50%"></div>
+    </div>
+    <div class="bar-legend">
+      <span id="bearPct">Bear 0%</span>
+      <span id="bullPct">Bull 0%</span>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="stat-card">
+      <div class="label">Trend + momentum</div>
+      <div class="value" id="trendVal">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Breadth (pullers − draggers)</div>
+      <div class="value" id="breadthVal">—</div>
+    </div>
+  </div>
+
+  <div class="meter-card">
+    <p class="panel-title">Auto-tuned blend</p>
+    <div class="sub" style="margin-bottom:4px;">
+      Walk-forward hit-rate on recent 5m bars — picks the trend/momentum weighting
+      that best matched the next bar's direction.
+    </div>
+    <div class="tune-row" id="tuneRow"></div>
+  </div>
+
+  <div class="meter-card">
+    <p class="panel-title">Pullers &amp; draggers</p>
+    <table>
+      <thead><tr><th>Symbol</th><th>Change</th><th>Index contribution</th></tr></thead>
+      <tbody id="breadthTable">
+        <tr><td colspan="3" style="color:var(--text-dim)">Loading constituent data…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <button id="refreshBtn" onclick="loadAll()">Refresh</button>
+
+  <div class="note">
+    Data via Yahoo Finance, routed through a public CORS proxy (<code>allorigins.win</code>) since
+    browsers block direct cross-origin requests — this proxy can rate-limit or go down without notice,
+    so treat this page as a prototype rather than a dependable feed. Weights are a fixed snapshot and
+    will drift from the live index over time. Nothing here is investment advice.
+  </div>
+
+</div>
+
+<script>
+const INDEX_TICKER = "^NSEI";
+const NIFTY50_WEIGHTS = {
+  "RELIANCE.NS":9.03,"BHARTIARTL.NS":5.93,"HDFCBANK.NS":5.67,"ICICIBANK.NS":5.40,
+  "SBIN.NS":5.08,"TCS.NS":4.44,"BAJFINANCE.NS":3.44,"LT.NS":2.88,"SUNPHARMA.NS":2.44,
+  "HINDUNILVR.NS":2.43,"INFY.NS":2.37,"TITAN.NS":2.36,"MARUTI.NS":2.20,"KOTAKBANK.NS":2.16,
+  "M&M.NS":2.14,"AXISBANK.NS":2.07,"ADANIENT.NS":2.05,"ADANIPORTS.NS":1.96,"HCLTECH.NS":1.84,
+  "ULTRACEMCO.NS":1.76,"BAJAJ-AUTO.NS":1.73,"BAJAJFINSV.NS":1.68,"JSWSTEEL.NS":1.67,
+  "ITC.NS":1.67,"NTPC.NS":1.65,"ETERNAL.NS":1.64,"BEL.NS":1.57,"ONGC.NS":1.52,
+  "SHRIRAMFIN.NS":1.34,"COALINDIA.NS":1.29,"ASIANPAINT.NS":1.28,"POWERGRID.NS":1.28,
+  "TATASTEEL.NS":1.19,"HINDALCO.NS":1.19,"GRASIM.NS":1.17,"EICHERMOT.NS":1.13,
+  "INDIGO.NS":1.04,"WIPRO.NS":0.94,"SBILIFE.NS":0.91,"TECHM.NS":0.83,"JIOFIN.NS":0.82,
+  "TRENT.NS":0.80,"APOLLOHOSP.NS":0.66,"HDFCLIFE.NS":0.61,"TATAMOTORS.NS":0.61,
+  "CIPLA.NS":0.59,"TATACONSUM.NS":0.53,"MAXHEALTH.NS":0.51,"DRREDDY.NS":0.50
+};
+const BREADTH_WEIGHT = 0.30;
+
+function proxied(url){
+  return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+}
+
+async function fetchChart(ticker, range, interval){
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`;
+  const res = await fetch(proxied(url));
+  const json = await res.json();
+  const result = json.chart.result[0];
+  const ts = result.timestamp;
+  const q = result.indicators.quote[0];
+  const closes = [];
+  for(let i=0;i<ts.length;i++){
+    if(q.close[i]==null || q.high[i]==null || q.low[i]==null) continue;
+    closes.push({ t:ts[i], high:q.high[i], low:q.low[i], close:q.close[i] });
+  }
+  return closes;
+}
+
+async function fetchQuotes(symbols){
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}`;
+  const res = await fetch(proxied(url));
+  const json = await res.json();
+  return json.quoteResponse.result;
+}
+
+// ---- indicator math (mirrors the Python script) ----
+
+function ema(values, span){
+  const k = 2/(span+1);
+  const out = [values[0]];
+  for(let i=1;i<values.length;i++) out.push(values[i]*k + out[i-1]*(1-k));
+  return out;
+}
+
+function rollingMean(values, window){
+  const out = new Array(values.length).fill(null);
+  for(let i=window-1;i<values.length;i++){
+    let sum=0;
+    for(let j=i-window+1;j<=i;j++) sum+=values[j];
+    out[i]=sum/window;
+  }
+  return out;
+}
+
+function rsi(closes, period){
+  const out = new Array(closes.length).fill(null);
+  const gains=[0], losses=[0];
+  for(let i=1;i<closes.length;i++){
+    const d = closes[i]-closes[i-1];
+    gains.push(Math.max(d,0));
+    losses.push(Math.max(-d,0));
+  }
+  for(let i=period;i<closes.length;i++){
+    let g=0,l=0;
+    for(let j=i-period+1;j<=i;j++){ g+=gains[j]; l+=losses[j]; }
+    g/=period; l/=period;
+    const rs = l===0 ? 100 : g/l;
+    out[i] = l===0 ? 100 : 100 - (100/(1+rs));
+  }
+  return out;
+}
+
+function computeComponents(bars){
+  const closes = bars.map(b=>b.close);
+  const highs = bars.map(b=>b.high);
+  const lows = bars.map(b=>b.low);
+  const emaC = ema(closes, 13);
+  const bull = highs.map((h,i)=>h-emaC[i]);
+  const bear = lows.map((l,i)=>l-emaC[i]);
+  const range = highs.map((h,i)=>h-lows[i]);
+  const rangeAvg = rollingMean(range, 13);
+  const rsiVals = rsi(closes, 14);
+
+  const trend = [], momentum = [];
+  for(let i=0;i<bars.length;i++){
+    if(rangeAvg[i]==null || rsiVals[i]==null){ trend.push(null); momentum.push(null); continue; }
+    const bullN = Math.max(-1, Math.min(1, bull[i]/rangeAvg[i]));
+    const bearN = Math.max(-1, Math.min(1, bear[i]/rangeAvg[i]));
+    trend.push(Math.max(-100, Math.min(100, (bullN+bearN)/2*100)));
+    momentum.push(Math.max(-100, Math.min(100, (rsiVals[i]-50)*2)));
+  }
+  return { trend, momentum, closes };
+}
+
+function tuneAlpha(bars){
+  const { trend, momentum, closes } = computeComponents(bars);
+  const alphas = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9];
+  const results = {};
+  for(const a of alphas){
+    let hits=0, total=0;
+    for(let i=0;i<bars.length-1;i++){
+      if(trend[i]==null || momentum[i]==null) continue;
+      const score = a*trend[i] + (1-a)*momentum[i];
+      const nextDir = Math.sign(closes[i+1]-closes[i]);
+      const predDir = Math.sign(score);
+      if(nextDir===0) continue;
+      total++; if(predDir===nextDir) hits++;
     }
+    results[a] = total ? hits/total : 0;
+  }
+  let best = alphas[0];
+  for(const a of alphas) if(results[a]>results[best]) best=a;
+  return { best, results, trend, momentum };
+}
 
-    function releaseWakeLock() {
-      if (wakeLock) {
-        wakeLock.release();
-        wakeLock = null;
-      }
-      document.getElementById("status").textContent = "Status: idle";
-    }
+// ---- rendering ----
 
-    document.getElementById("wakeBtn").addEventListener("click", requestWakeLock);
-    document.getElementById("releaseBtn").addEventListener("click", releaseWakeLock);
-  </script>
+function renderTuning(results, best){
+  const row = document.getElementById("tuneRow");
+  row.innerHTML = "";
+  Object.entries(results).forEach(([a,hr])=>{
+    const chip = document.createElement("span");
+    chip.className = "tune-chip" + (parseFloat(a)===best ? " best" : "");
+    chip.textContent = `α=${a} → ${(hr*100).toFixed(1)}%`;
+    row.appendChild(chip);
+  });
+}
+
+function renderMeter(finalScore, trendScore, breadthScore){
+  const bull = Math.max(finalScore, 0);
+  const bear = Math.max(-finalScore, 0);
+  document.getElementById("netScore").textContent =
+    (finalScore>0?"+":"") + finalScore.toFixed(1);
+  document.getElementById("netScore").style.color =
+    finalScore>0 ? "var(--bull)" : "var(--bear)";
+  document.getElementById("barBull").style.width = bull + "%";
+  document.getElementById("barBear").style.width = bear + "%";
+  document.getElementById("bullPct").textContent = "Bull " + bull.toFixed(0) + "%";
+  document.getElementById("bearPct").textContent = "Bear " + bear.toFixed(0) + "%";
+  document.getElementById("trendVal").textContent =
+    (trendScore>0?"+":"") + trendScore.toFixed(1);
+  document.getElementById("breadthVal").textContent =
+    (breadthScore>0?"+":"") + breadthScore.toFixed(1);
+
+  const pill = document.getElementById("statusPill");
+  if(finalScore>0){
+    pill.textContent = "Bullish"; pill.style.color="var(--bull)"; pill.style.borderColor="var(--bull)";
+  } else {
+    pill.textContent = "Bearish"; pill.style.color="var(--bear)"; pill.style.borderColor="var(--bear)";
+  }
+}
+
+function renderBreadthTable(quotes){
+  const rows = quotes
+    .map(q=>{
+      const w = NIFTY50_WEIGHTS[q.symbol] || 0;
+      const chg = q.regularMarketChangePercent || 0;
+      return { symbol:q.symbol, chg, contrib: chg*(w/100) };
+    })
+    .sort((a,b)=>b.contrib-a.contrib);
+
+  const top = rows.slice(0,5);
+  const bottom = rows.slice(-5).reverse();
+  const tbody = document.getElementById("breadthTable");
+  tbody.innerHTML = "";
+  [...top, ...bottom].forEach(r=>{
+    const tr = document.createElement("tr");
+    const cls = r.contrib>=0 ? "pos" : "neg";
+    tr.innerHTML = `<td>${r.symbol.replace(".NS","")}</td>
+      <td class="${cls}">${r.chg>=0?"+":""}${r.chg.toFixed(2)}%</td>
+      <td class="${cls}">${r.contrib>=0?"+":""}${r.contrib.toFixed(3)}</td>`;
+    tbody.appendChild(tr);
+  });
+  return rows.reduce((s,r)=>s+r.contrib, 0);
+}
+
+async function loadAll(){
+  const btn = document.getElementById("refreshBtn");
+  btn.disabled = true; btn.textContent = "Loading…";
+  try{
+    const bars = await fetchChart(INDEX_TICKER, "5d", "5m");
+    const { best, results, trend, momentum } = tuneAlpha(bars);
+    renderTuning(results, best);
+
+    const lastTrend = trend[trend.length-1];
+    const lastMomentum = momentum[momentum.length-1];
+    const trendScore = best*lastTrend + (1-best)*lastMomentum;
+
+    const symbols = Object.keys(NIFTY50_WEIGHTS);
+    const quotes = await fetchQuotes(symbols);
+    const breadthRaw = renderBreadthTable(quotes);
+    const breadthScore = Math.tanh(breadthRaw/2) * 100;
+
+    let finalScore = (1-BREADTH_WEIGHT)*trendScore + BREADTH_WEIGHT*breadthScore;
+    finalScore = Math.max(-100, Math.min(100, finalScore));
+
+    renderMeter(finalScore, trendScore, breadthScore);
+    document.getElementById("lastUpdated").textContent =
+      "updated " + new Date().toLocaleTimeString();
+  }catch(err){
+    document.getElementById("lastUpdated").textContent = "load failed — see console";
+    console.error(err);
+  }finally{
+    btn.disabled = false; btn.textContent = "Refresh";
+  }
+}
+
+loadAll();
+</script>
 </body>
 </html>
