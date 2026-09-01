@@ -189,11 +189,32 @@ async function fetchChart(ticker, range, interval){
   return closes;
 }
 
-async function fetchQuotes(symbols){
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}`;
-  const res = await fetch(proxied(url));
-  const json = await res.json();
-  return json.quoteResponse.result;
+// Yahoo's v7/finance/quote endpoint now requires an auth "crumb" that
+// anonymous/proxied requests don't have, so breadth is computed from
+// the same public chart endpoint used for the index — one call per
+// symbol, run in small concurrent batches so the shared CORS proxy
+// doesn't get hammered (or rate-limit us) all at once.
+async function fetchLatestChangePct(ticker){
+  try{
+    const bars = await fetchChart(ticker, "1d", "5m");
+    if(bars.length < 2) return null;
+    const prev = bars[bars.length-2].close;
+    const last = bars[bars.length-1].close;
+    return (last/prev - 1) * 100;
+  }catch(e){
+    console.warn("breadth fetch failed for", ticker, e);
+    return null;
+  }
+}
+
+async function fetchAllChanges(symbols, batchSize=6){
+  const out = {};
+  for(let i=0;i<symbols.length;i+=batchSize){
+    const batch = symbols.slice(i, i+batchSize);
+    const results = await Promise.all(batch.map(fetchLatestChangePct));
+    batch.forEach((sym,idx)=> out[sym] = results[idx]);
+  }
+  return out;
 }
 
 // ---- indicator math (mirrors the Python script) ----
@@ -313,12 +334,12 @@ function renderMeter(finalScore, trendScore, breadthScore){
   }
 }
 
-function renderBreadthTable(quotes){
-  const rows = quotes
-    .map(q=>{
-      const w = NIFTY50_WEIGHTS[q.symbol] || 0;
-      const chg = q.regularMarketChangePercent || 0;
-      return { symbol:q.symbol, chg, contrib: chg*(w/100) };
+function renderBreadthTable(changes){
+  const rows = Object.entries(changes)
+    .filter(([sym, chg]) => chg !== null)
+    .map(([sym, chg])=>{
+      const w = NIFTY50_WEIGHTS[sym] || 0;
+      return { symbol:sym, chg, contrib: chg*(w/100) };
     })
     .sort((a,b)=>b.contrib-a.contrib);
 
@@ -350,8 +371,9 @@ async function loadAll(){
     const trendScore = best*lastTrend + (1-best)*lastMomentum;
 
     const symbols = Object.keys(NIFTY50_WEIGHTS);
-    const quotes = await fetchQuotes(symbols);
-    const breadthRaw = renderBreadthTable(quotes);
+    btn.textContent = `Loading breadth (0/${symbols.length})…`;
+    const changes = await fetchAllChanges(symbols);
+    const breadthRaw = renderBreadthTable(changes);
     const breadthScore = Math.tanh(breadthRaw/2) * 100;
 
     let finalScore = (1-BREADTH_WEIGHT)*trendScore + BREADTH_WEIGHT*breadthScore;
